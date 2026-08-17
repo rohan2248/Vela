@@ -84,3 +84,48 @@ export type CorsairEntity = Prisma.CorsairEntityModel
  * 
  */
 export type CorsairEvent = Prisma.CorsairEventModel
+/**
+ * Model CorsairPermission
+ * Mirrors the corsair_permissions table that corsair >=0.1.108 expects.
+ * expires_at is deliberately text, not timestamptz: the SDK types it as
+ * z.ZodString and compares it lexicographically (`row.expires_at < nowIso`),
+ * which only works if node-pg hands back an ISO string rather than a Date.
+ */
+export type CorsairPermission = Prisma.CorsairPermissionModel
+/**
+ * Model ConnectedAccount
+ * Maps a better-auth user to their Corsair tenant and Google identity.
+ * 
+ * Two columns here are load-bearing for webhook routing, because Google's push
+ * notifications carry no tenant information of their own:
+ * - providerEmail    resolves Gmail Pub/Sub pushes (payload has emailAddress)
+ * - calendarChannelId resolves Calendar pushes (X-Goog-Channel-Id header)
+ */
+export type ConnectedAccount = Prisma.ConnectedAccountModel
+/**
+ * Model ChatThread
+ * 
+ */
+export type ChatThread = Prisma.ChatThreadModel
+/**
+ * Model ChatMessage
+ * 
+ */
+export type ChatMessage = Prisma.ChatMessageModel
+/**
+ * Model SyncState
+ * Backfill / indexing progress, one row per (tenant, kind).
+ */
+export type SyncState = Prisma.SyncStateModel
+/**
+ * Model EmailIndex
+ * Vector + full-text index over emails Corsair has already cached in
+ * corsair_entities. Kept as a side table rather than extra columns on
+ * corsair_entities because Corsair owns that table and `upsertByEntityId`
+ * rewrites `data` wholesale on every write.
+ * 
+ * `embedding` and `fts` are Postgres types Prisma cannot represent, so this
+ * model exists only to keep `prisma migrate` aware of the table. Every read
+ * and write goes through raw SQL in lib/search/ and lib/indexer.ts.
+ */
+export type EmailIndex = Prisma.EmailIndexModel

@@ -56,7 +56,13 @@ export const ModelName = {
   CorsairIntegration: 'CorsairIntegration',
   CorsairAccount: 'CorsairAccount',
   CorsairEntity: 'CorsairEntity',
-  CorsairEvent: 'CorsairEvent'
+  CorsairEvent: 'CorsairEvent',
+  CorsairPermission: 'CorsairPermission',
+  ConnectedAccount: 'ConnectedAccount',
+  ChatThread: 'ChatThread',
+  ChatMessage: 'ChatMessage',
+  SyncState: 'SyncState',
+  EmailIndex: 'EmailIndex'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -183,6 +189,98 @@ export const CorsairEventScalarFieldEnum = {
 } as const
 
 export type CorsairEventScalarFieldEnum = (typeof CorsairEventScalarFieldEnum)[keyof typeof CorsairEventScalarFieldEnum]
+
+
+export const CorsairPermissionScalarFieldEnum = {
+  id: 'id',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  token: 'token',
+  plugin: 'plugin',
+  endpoint: 'endpoint',
+  args: 'args',
+  tenantId: 'tenantId',
+  status: 'status',
+  expiresAt: 'expiresAt',
+  error: 'error'
+} as const
+
+export type CorsairPermissionScalarFieldEnum = (typeof CorsairPermissionScalarFieldEnum)[keyof typeof CorsairPermissionScalarFieldEnum]
+
+
+export const ConnectedAccountScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  provider: 'provider',
+  tenantId: 'tenantId',
+  providerEmail: 'providerEmail',
+  gmailHistoryId: 'gmailHistoryId',
+  gmailWatchExpiresAt: 'gmailWatchExpiresAt',
+  calendarChannelId: 'calendarChannelId',
+  calendarResourceId: 'calendarResourceId',
+  calendarWatchExpiresAt: 'calendarWatchExpiresAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ConnectedAccountScalarFieldEnum = (typeof ConnectedAccountScalarFieldEnum)[keyof typeof ConnectedAccountScalarFieldEnum]
+
+
+export const ChatThreadScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  title: 'title',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ChatThreadScalarFieldEnum = (typeof ChatThreadScalarFieldEnum)[keyof typeof ChatThreadScalarFieldEnum]
+
+
+export const ChatMessageScalarFieldEnum = {
+  id: 'id',
+  threadId: 'threadId',
+  role: 'role',
+  parts: 'parts',
+  createdAt: 'createdAt'
+} as const
+
+export type ChatMessageScalarFieldEnum = (typeof ChatMessageScalarFieldEnum)[keyof typeof ChatMessageScalarFieldEnum]
+
+
+export const SyncStateScalarFieldEnum = {
+  id: 'id',
+  tenantId: 'tenantId',
+  kind: 'kind',
+  status: 'status',
+  cursor: 'cursor',
+  processed: 'processed',
+  total: 'total',
+  error: 'error',
+  startedAt: 'startedAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type SyncStateScalarFieldEnum = (typeof SyncStateScalarFieldEnum)[keyof typeof SyncStateScalarFieldEnum]
+
+
+export const EmailIndexScalarFieldEnum = {
+  entityRowId: 'entityRowId',
+  tenantId: 'tenantId',
+  messageId: 'messageId',
+  threadId: 'threadId',
+  subject: 'subject',
+  fromAddr: 'fromAddr',
+  toAddr: 'toAddr',
+  snippet: 'snippet',
+  bodyText: 'bodyText',
+  sentAt: 'sentAt',
+  labelIds: 'labelIds',
+  contentHash: 'contentHash',
+  indexedAt: 'indexedAt'
+} as const
+
+export type EmailIndexScalarFieldEnum = (typeof EmailIndexScalarFieldEnum)[keyof typeof EmailIndexScalarFieldEnum]
 
 
 export const SortOrder = {

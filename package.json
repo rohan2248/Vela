@@ -6,23 +6,33 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "corsair:setup": "tsx scripts/setup-corsair.ts",
+    "db:migrate": "prisma migrate deploy",
+    "db:generate": "prisma generate"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.39",
+    "@ai-sdk/react": "^4.0.69",
     "@corsair-dev/cli": "^0.1.19",
     "@corsair-dev/gmail": "^0.1.4",
     "@corsair-dev/googlecalendar": "^0.1.4",
+    "@corsair-dev/mcp": "^0.1.26",
+    "@huggingface/transformers": "^3.8.1",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^6.19.3",
     "@tanstack/react-query": "^5.101.0",
+    "ai": "^7.0.66",
     "better-auth": "^1.6.18",
-    "corsair": "^0.1.76",
+    "corsair": "^0.1.108",
     "dotenv": "^17.4.2",
     "next": "16.2.9",
     "ngrok": "5.0.0-beta.2",
     "pg": "^8.21.0",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -34,6 +44,7 @@
     "eslint-config-next": "16.2.9",
     "prisma": "^6.19.3",
     "tailwindcss": "^4",
+    "tsx": "^4.23.12",
     "typescript": "^5"
   }
 }

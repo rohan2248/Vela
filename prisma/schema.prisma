@@ -22,6 +22,9 @@ model User {
   sessions      Session[]
   accounts      Account[]
 
+  connectedAccounts ConnectedAccount[]
+  chatThreads       ChatThread[]
+
   @@unique([email])
   @@map("user")
 }
@@ -127,4 +130,147 @@ model CorsairEvent {
   account   CorsairAccount @relation(fields: [accountId], references: [id])
 
   @@map("corsair_events")
+}
+
+/// Mirrors the corsair_permissions table that corsair >=0.1.108 expects.
+/// expires_at is deliberately text, not timestamptz: the SDK types it as
+/// z.ZodString and compares it lexicographically (`row.expires_at < nowIso`),
+/// which only works if node-pg hands back an ISO string rather than a Date.
+model CorsairPermission {
+  id        String   @id
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  token     String
+  plugin    String
+  endpoint  String
+  args      String
+  tenantId  String   @map("tenant_id")
+  status    String   @default("pending")
+  expiresAt String   @map("expires_at")
+  error     String?
+
+  @@unique([token])
+  @@index([tenantId])
+  @@map("corsair_permissions")
+}
+
+// ---------------------------------------------------------------------------
+// Application tables
+// ---------------------------------------------------------------------------
+
+/// Maps a better-auth user to their Corsair tenant and Google identity.
+///
+/// Two columns here are load-bearing for webhook routing, because Google's push
+/// notifications carry no tenant information of their own:
+///   - providerEmail    resolves Gmail Pub/Sub pushes (payload has emailAddress)
+///   - calendarChannelId resolves Calendar pushes (X-Goog-Channel-Id header)
+model ConnectedAccount {
+  id       String @id @default(cuid())
+  userId   String @map("user_id")
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider String // "gmail" | "googlecalendar"
+
+  /// Always equal to userId. Stored explicitly so the tenant key stays greppable
+  /// and survives any future change to how tenants are derived.
+  tenantId String @map("tenant_id")
+
+  providerEmail String? @map("provider_email")
+
+  // Gmail users.watch state (expires after 7 days)
+  gmailHistoryId      String?   @map("gmail_history_id")
+  gmailWatchExpiresAt DateTime? @map("gmail_watch_expires_at") @db.Timestamptz
+
+  // Calendar events.watch channel state (expires after 7 days)
+  calendarChannelId      String?   @map("calendar_channel_id")
+  calendarResourceId     String?   @map("calendar_resource_id")
+  calendarWatchExpiresAt DateTime? @map("calendar_watch_expires_at") @db.Timestamptz
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([userId, provider])
+  @@unique([calendarChannelId])
+  @@index([providerEmail, provider])
+  @@index([tenantId])
+  @@map("connected_accounts")
+}
+
+model ChatThread {
+  id        String        @id @default(cuid())
+  userId    String        @map("user_id")
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String?
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  messages  ChatMessage[]
+
+  @@index([userId, updatedAt])
+  @@map("chat_threads")
+}
+
+model ChatMessage {
+  id       String     @id @default(cuid())
+  threadId String     @map("thread_id")
+  thread   ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  role     String // "user" | "assistant" | "system"
+
+  /// Full AI SDK UIMessage parts array — preserves tool calls and results,
+  /// not just the rendered text.
+  parts     Json     @default("[]")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([threadId, createdAt])
+  @@map("chat_messages")
+}
+
+/// Backfill / indexing progress, one row per (tenant, kind).
+model SyncState {
+  id        String    @id @default(cuid())
+  tenantId  String    @map("tenant_id")
+  kind      String // "gmail_backfill" | "calendar_backfill"
+  status    String    @default("idle") // idle | running | done | error
+  cursor    String? // Gmail pageToken / Calendar syncToken
+  processed Int       @default(0)
+  total     Int?
+  error     String?
+  startedAt DateTime? @map("started_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([tenantId, kind])
+  @@map("sync_state")
+}
+
+/// Vector + full-text index over emails Corsair has already cached in
+/// corsair_entities. Kept as a side table rather than extra columns on
+/// corsair_entities because Corsair owns that table and `upsertByEntityId`
+/// rewrites `data` wholesale on every write.
+///
+/// `embedding` and `fts` are Postgres types Prisma cannot represent, so this
+/// model exists only to keep `prisma migrate` aware of the table. Every read
+/// and write goes through raw SQL in lib/search/ and lib/indexer.ts.
+model EmailIndex {
+  entityRowId String @id @map("entity_row_id")
+  tenantId    String @map("tenant_id")
+  messageId   String @map("message_id")
+  threadId    String? @map("thread_id")
+
+  subject   String?
+  fromAddr  String?   @map("from_addr")
+  toAddr    String?   @map("to_addr")
+  snippet   String?
+  bodyText  String?   @map("body_text")
+  sentAt    DateTime? @map("sent_at") @db.Timestamptz
+  labelIds  String[]  @map("label_ids")
+
+  /// sha256(subject + body). Lets re-indexing skip unchanged rows, which
+  /// matters because Corsair re-fetches and re-upserts after every mutation.
+  contentHash String @map("content_hash")
+
+  embedding Unsupported("vector(384)")?
+  fts       Unsupported("tsvector")?
+
+  indexedAt DateTime @default(now()) @map("indexed_at") @db.Timestamptz
+
+  @@index([tenantId, sentAt])
+  @@map("email_index")
 }

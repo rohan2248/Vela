@@ -1,7 +1,12 @@
 allowBuilds:
-  '@prisma/client': set this to true or false
-  '@prisma/engines': set this to true or false
-  ngrok: set this to true or false
-  prisma: set this to true or false
-  sharp: set this to true or false
-  unrs-resolver: set this to true or false
+  '@prisma/client': true
+  '@prisma/engines': true
+  esbuild: true
+  # Native ONNX runtime for the local embedding provider.
+  onnxruntime-node: true
+  prisma: true
+  protobufjs: true
+  sharp: true
+  unrs-resolver: true
+  # Only used to tunnel webhooks in development.
+  ngrok: false
