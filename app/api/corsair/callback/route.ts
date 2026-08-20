@@ -18,9 +18,12 @@ export async function GET(request: NextRequest) {
   const state = params.get("state");
   const oauthError = params.get("error");
 
+  // Back to the workspace, not the landing page — connecting an account is
+  // something you do from inside the app, and that is where the result banner
+  // reads the ?connect= and ?plugin= params.
   const redirect = (query: Record<string, string>) =>
     NextResponse.redirect(
-      new URL(`/?${new URLSearchParams(query)}`, env.appUrl),
+      new URL(`/workspace?${new URLSearchParams(query)}`, env.appUrl),
     );
 
   if (oauthError) {

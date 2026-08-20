@@ -8,7 +8,7 @@ import {
 } from "ai";
 import { buildSystemPrompt, buildTools } from "@/lib/agent/tools";
 import { prisma } from "@/lib/db";
-import { CHAT_MODEL } from "@/lib/env";
+import { CHAT_MODEL, env } from "@/lib/env";
 import { errorResponse, requireTenant } from "@/lib/tenant";
 
 export const runtime = "nodejs";
@@ -22,29 +22,45 @@ type ChatBody = {
   timeZone?: string;
 };
 
-async function persist(
+/** Raised when a threadId doesn't exist, or belongs to somebody else. */
+class ThreadNotFoundError extends Error {
+  constructor() {
+    super("Thread not found");
+    this.name = "ThreadNotFoundError";
+  }
+}
+
+async function resolveThread(
   userId: string,
   threadId: string | undefined,
   messages: UIMessage[],
 ): Promise<string> {
-  const thread = threadId
-    ? await prisma.chatThread.update({
-        where: { id: threadId },
-        data: { updatedAt: new Date() },
-      })
-    : await prisma.chatThread.create({
-        data: {
-          userId,
-          // First user message doubles as the thread title.
-          title:
-            messages
-              .find((message) => message.role === "user")
-              ?.parts?.find((part) => part.type === "text")
-              ?.text?.slice(0, 80) ?? "New conversation",
-        },
-      });
+  if (!threadId) {
+    const thread = await prisma.chatThread.create({
+      data: {
+        userId,
+        // First user message doubles as the thread title.
+        title:
+          messages
+            .find((message) => message.role === "user")
+            ?.parts?.find((part) => part.type === "text")
+            ?.text?.slice(0, 80) ?? "New conversation",
+      },
+    });
+    return thread.id;
+  }
 
-  return thread.id;
+  // Scoped by userId, not just id. A bare `update({ where: { id } })` would let
+  // any signed-in user append to somebody else's thread by guessing its id.
+  // updateMany accepts the compound filter and reports 0 rows rather than
+  // throwing an opaque P2025.
+  const { count } = await prisma.chatThread.updateMany({
+    where: { id: threadId, userId },
+    data: { updatedAt: new Date() },
+  });
+  if (count === 0) throw new ThreadNotFoundError();
+
+  return threadId;
 }
 
 export async function POST(request: Request) {
@@ -55,13 +71,20 @@ export async function POST(request: Request) {
     const timeZone = body.timeZone || "UTC";
     const context = { userId, userEmail: email, timeZone };
 
-    const threadId = await persist(userId, body.threadId, body.messages ?? []);
+    const incoming = body.messages ?? [];
+    const threadId = await resolveThread(userId, body.threadId, incoming);
 
     const result = streamText({
       model: anthropic(CHAT_MODEL),
       system: buildSystemPrompt(context),
-      messages: await convertToModelMessages(body.messages ?? []),
+      messages: await convertToModelMessages(incoming),
       tools: buildTools(context),
+
+      // send_email, create_calendar_event and run_script pause for approval.
+      // Without a secret the approval request is unsigned, so a client could
+      // POST back a fabricated approval for a tool call the model never made
+      // and we would execute it. This binds each approval to its tool call.
+      experimental_toolApprovalSecret: env.toolApprovalSecret,
 
       // Scheduling a meeting is a multi-step task: resolve the time, check the
       // calendar, create the event, then send a follow-up email. Without a stop
@@ -76,37 +99,47 @@ export async function POST(request: Request) {
         } satisfies AnthropicProviderOptions,
       },
 
-      onFinish: async ({ response }) => {
+    });
+
+    return result.toUIMessageStreamResponse({
+      headers: { "x-thread-id": threadId },
+
+      // Persistence mode. Passing the inbound history back means onFinish
+      // receives the whole conversation as UIMessages with stable ids, so every
+      // row lands in one schema. Persisting from streamText's own onFinish
+      // instead wrote user rows as UIMessage `parts` but assistant rows as
+      // ModelMessage `content` — two shapes in one column, unreplayable.
+      originalMessages: incoming,
+
+      onFinish: async ({ messages }) => {
         try {
-          await prisma.chatMessage.createMany({
-            data: [
-              ...(body.messages ?? []).slice(-1).map((message) => ({
+          // The whole thread is rewritten each turn. An approval round-trip
+          // re-sends earlier messages, so appending would duplicate them.
+          await prisma.$transaction([
+            prisma.chatMessage.deleteMany({ where: { threadId } }),
+            prisma.chatMessage.createMany({
+              data: messages.map((message) => ({
                 threadId,
                 role: message.role,
                 parts: JSON.parse(JSON.stringify(message.parts ?? [])),
               })),
-              ...response.messages.map((message) => ({
-                threadId,
-                role: message.role,
-                parts: JSON.parse(JSON.stringify(message.content)),
-              })),
-            ],
-          });
+            }),
+          ]);
         } catch (error) {
           // Losing the transcript should never break the response itself.
           console.error("[chat] failed to persist messages:", error);
         }
       },
-    });
 
-    return result.toUIMessageStreamResponse({
-      headers: { "x-thread-id": threadId },
       // Tool errors are worth showing: "Account not connected" is actionable,
       // and hiding it behind a generic failure just confuses the user.
       onError: (error) =>
         error instanceof Error ? error.message : String(error),
     });
   } catch (error) {
+    if (error instanceof ThreadNotFoundError) {
+      return Response.json({ error: error.message }, { status: 404 });
+    }
     return errorResponse(error);
   }
 }

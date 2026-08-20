@@ -23,7 +23,9 @@ const SignInPage = () => {
     try {
       await authClient.signIn.social({
         provider: "google",
-        callbackURL: "/",
+        // Signing in is how you get into the app, so land in the workspace —
+        // "/" is the marketing page and has no idea you're authenticated.
+        callbackURL: "/workspace",
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");

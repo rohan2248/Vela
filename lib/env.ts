@@ -88,6 +88,15 @@ export const env = {
     return optional("WEBHOOK_TENANT_SECRET") ?? this.corsairKek;
   },
 
+  /**
+   * HMAC key binding a tool-approval response to the tool call it approves.
+   * Without it the browser could POST an approval for a `send_email` or
+   * `run_script` call the model never made, and we would execute it.
+   */
+  get toolApprovalSecret() {
+    return optional("TOOL_APPROVAL_SECRET") ?? this.corsairKek;
+  },
+
   get embeddingProvider() {
     return (optional("EMBEDDING_PROVIDER") ?? "local").toLowerCase();
   },
