@@ -5,13 +5,10 @@ const nextConfig: NextConfig = {
     // Feature-card icons on the landing page are served from this CDN.
     remotePatterns: [{ protocol: "https", hostname: "images.higgs.ai" }],
   },
-  // Prisma's query engine is loaded via a dynamic require Next's file tracer
-  // doesn't always follow — reliably under pnpm's symlinked node_modules,
-  // where default tracing has been observed to drop it. Force-include it
-  // explicitly so every route's serverless bundle ships the Linux engine.
-  outputFileTracingIncludes: {
-    "/**/*": ["./prisma/lib/generated/prisma/*.so.node"],
-  },
+  // Keep Prisma out of the server bundle. Bundling rewrites the client's
+  // __dirname, which is how it loses track of its query engine binary; left
+  // external it resolves the engine from node_modules at runtime as intended.
+  serverExternalPackages: ["@prisma/client", ".prisma/client"],
 };
 
 export default nextConfig;

@@ -1,7 +1,12 @@
 
+// Deliberately the default generator with no custom `output`, so the client and
+// its query engine land in node_modules/.prisma/client. A custom output path put
+// the engine in a project folder whose __dirname gets rewritten when Next bundles
+// the client, so at runtime Prisma searched paths the engine was never copied to
+// and every DB request 500'd on Vercel. node_modules is the layout Next's file
+// tracer and Vercel both special-case, so the engine ships automatically.
 generator client {
-  provider      = "prisma-client"
-  output        = "./lib/generated/prisma"
+  provider      = "prisma-client-js"
   binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
