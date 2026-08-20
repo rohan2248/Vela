@@ -41,3 +41,9 @@ yarn-error.log*
 next-env.d.ts
 
 /app/generated/prisma
+
+# Prisma query engine binaries. Platform-specific (~20MB each) and rebuilt by
+# `prisma generate` on both install and build, so they never belong in git.
+# Committing one is what shipped a Windows engine to Vercel's Linux runtime
+# and 500'd every route that touches the database.
+/prisma/lib/generated/prisma/*.node
