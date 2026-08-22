@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
@@ -9,24 +10,46 @@ import { Button } from "@/components/ui/button";
 
 const CREAM = "#E1E0CC";
 
+// Better Auth bounces a failed OAuth round-trip back here with ?error=<code>
+// (see onAPIError.errorURL in lib/auth.ts). Unmapped codes still surface raw,
+// so a screenshot of the failure is worth something.
+const OAUTH_ERRORS: Record<string, string> = {
+  state_mismatch: "That sign-in attempt expired. Please try again.",
+  state_not_found: "That sign-in attempt expired. Please try again.",
+  invalid_code: "Google turned down that sign-in. Please try again.",
+  access_denied: "Sign-in was cancelled.",
+  email_not_found: "Google didn't share an email address for that account.",
+};
+
 // Same footage as the hero, so arriving here reads as the same place.
 const BACKGROUND_VIDEO =
   "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260405_170732_8a9ccda6-5cff-4628-b164-059c500a2b41.mp4";
 
-const SignInPage = () => {
+const SignInForm = () => {
+  const failedCode = useSearchParams().get("error");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    failedCode
+      ? (OAUTH_ERRORS[failedCode] ?? `Sign-in failed (${failedCode}).`)
+      : null,
+  );
 
   const handleGoogleSignIn = async () => {
     setError(null);
     setLoading(true);
     try {
-      await authClient.signIn.social({
+      const { error: failure } = await authClient.signIn.social({
         provider: "google",
         // Signing in is how you get into the app, so land in the workspace —
         // "/" is the marketing page and has no idea you're authenticated.
         callbackURL: "/workspace",
       });
+      // The client returns failures rather than throwing, so without this a
+      // rejected request leaves the button stuck on "Redirecting…" forever.
+      if (failure) {
+        setError(failure.message ?? "Couldn't reach Google. Please try again.");
+        setLoading(false);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
       setLoading(false);
@@ -127,6 +150,14 @@ const GoogleIcon = () => (
       d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.06l3.66 2.84C6.71 7.3 9.14 5.38 12 5.38Z"
     />
   </svg>
+);
+
+// useSearchParams opts the tree out of prerendering, so it needs a boundary
+// of its own rather than taking the whole page down with it.
+const SignInPage = () => (
+  <Suspense>
+    <SignInForm />
+  </Suspense>
 );
 
 export default SignInPage;
