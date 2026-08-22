@@ -11,7 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -38,7 +37,13 @@ export function MailDetail({
     <Dialog open={!!messageId} onOpenChange={(open) => !open && onClose()}>
       {/* DialogContent is `grid` by default, where a `flex-1` child does not
           fill and the popup just grows past max-h. Forcing a flex column is
-          what gives the body a bounded height to scroll inside. */}
+          what gives the body a bounded height to scroll inside.
+
+          The popup is still `height: auto` clamped by max-h — an *indefinite*
+          height — so a descendant sized with a percentage height resolves to
+          `auto` and grows to fit its content instead. That rules out
+          <ScrollArea>, whose viewport is `size-full`: it would size to the
+          whole message and silently clip. Flex sizing has no such problem. */}
       <DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden border-white/10 bg-[#101010] p-0 sm:max-w-2xl">
         <DialogHeader className="shrink-0 border-b border-white/10 px-6 py-4">
           <DialogTitle className="pr-6 text-base leading-snug text-cream">
@@ -75,8 +80,14 @@ export function MailDetail({
           )}
         </DialogHeader>
 
-        <ScrollArea className="min-h-0 flex-1">
-          <div className="px-6 py-5">
+        {/* tabIndex keeps a scrollable region reachable by keyboard — without
+            it PageDown/arrows have nothing to act on. color-scheme is what
+            paints the native scrollbar dark; the popup sets its own dark
+            colors rather than inheriting a dark theme, so nothing else would. */}
+        <div
+          tabIndex={0}
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5 outline-none scheme-dark"
+        >
           {isPending && (
             <p className="flex items-center gap-2 text-xs text-gray-600">
               <Loader2 className="size-3 animate-spin" />
@@ -123,8 +134,7 @@ export function MailDetail({
               </ul>
             </div>
           )}
-          </div>
-        </ScrollArea>
+        </div>
       </DialogContent>
     </Dialog>
   );

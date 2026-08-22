@@ -5,6 +5,14 @@ import { ScrollArea as ScrollAreaPrimitive } from "@base-ui/react/scroll-area"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * The viewport fills the root with `size-full`, i.e. a percentage height, so
+ * the root needs a *definite* height for it to resolve — an explicit one, or a
+ * flex/grid track inside an ancestor that has one. `flex-1` inside a container
+ * that is only `max-h-*` bounded is not enough: the percentage falls back to
+ * `auto`, the viewport grows to the full content, and it silently stops
+ * scrolling. In that situation use a plain `overflow-y-auto` container instead.
+ */
 function ScrollArea({
   className,
   children,
